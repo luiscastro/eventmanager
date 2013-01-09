@@ -51,6 +51,12 @@ func getCallback(identifier string) func(EventData) EventResponse {
 	return nil
 }
 
+//Verifiy if event exists
+func Exists(identifier string) bool {
+	callback := getCallback(identifier)
+	return callback != nil
+}
+
 //Call event callback sync based on Event object
 func (e *Event) Call(data interface{}) (EventResponse, error) {
 	return Call(e.Identifier, data)
