@@ -10,20 +10,13 @@ import (
 var events map[string]*Event
 var events_mutex *sync.Mutex
 
-//Type which will be sended to event function
-type EventData struct {
-	Data interface{}
-}
-
-//Type which will be returned by event function
-type EventResponse struct {
-	Data interface{}
-}
+type EventCallback func(interface{}) (interface{}, error)
+type EventAsyncCallback func(interface{}, error)
 
 //Event object with Identifier and Callback
 type Event struct {
 	Identifier string
-	Callback   func(EventData) EventResponse
+	Callback   EventCallback
 }
 
 func init() {
@@ -32,7 +25,7 @@ func init() {
 }
 
 //Create new event
-func New(identifier string, callback func(EventData) EventResponse) *Event {
+func New(identifier string, callback EventCallback) *Event {
 	events_mutex.Lock()
 	defer events_mutex.Unlock()
 	event := new(Event)
@@ -42,7 +35,7 @@ func New(identifier string, callback func(EventData) EventResponse) *Event {
 	return events[identifier]
 }
 
-func getCallback(identifier string) func(EventData) EventResponse {
+func getCallback(identifier string) EventCallback {
 	events_mutex.Lock()
 	defer events_mutex.Unlock()
 	if event, exists := events[identifier]; exists {
@@ -58,30 +51,31 @@ func Exists(identifier string) bool {
 }
 
 //Call event callback sync based on Event object
-func (e *Event) Call(data interface{}) (EventResponse, error) {
+func (e *Event) Call(data interface{}) (interface{}, error) {
 	return Call(e.Identifier, data)
 }
 
 //Call event callback sync
-func Call(identifier string, data interface{}) (EventResponse, error) {
+func Call(identifier string, data interface{}) (interface{}, error) {
 	callback := getCallback(identifier)
 	if callback != nil {
-		return callback(EventData{Data: data}), nil
+		return callback(data)
 	}
-	return EventResponse{}, errors.New("This event identifier isn't registered")
+	return nil, errors.New("This event identifier isn't registered")
 }
 
 //Call event callback async based on Event object
-func (e *Event) AsyncCall(data interface{}, c chan<- EventResponse) error {
-	return AsyncCall(e.Identifier, data, c)
+func (e *Event) AsyncCall(data interface{}, f EventAsyncCallback) error {
+	return AsyncCall(e.Identifier, data, f)
 }
 
 //Call event callback async the response will be send to channel
-func AsyncCall(identifier string, data interface{}, c chan<- EventResponse) error {
+func AsyncCall(identifier string, data interface{}, f EventAsyncCallback) error {
 	callback := getCallback(identifier)
 	if callback != nil {
 		go func() {
-			c <- callback(EventData{data})
+			response, err := callback(data)
+			f(response, err)
 		}()
 		return nil
 	}
