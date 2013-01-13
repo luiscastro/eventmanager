@@ -75,7 +75,9 @@ func AsyncCall(identifier string, data interface{}, f EventAsyncCallback) error 
 	if callback != nil {
 		go func() {
 			response, err := callback(data)
-			f(response, err)
+			if f != nil {
+				f(response, err)
+			}
 		}()
 		return nil
 	}
